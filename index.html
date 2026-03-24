@@ -1,0 +1,262 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Dino Pro Mobile</title>
+
+<style>
+    body {
+        margin: 0;
+        overflow: hidden;
+        font-family: Arial;
+        background: linear-gradient(#87CEEB, #ffffff);
+    }
+
+    canvas {
+        display: block;
+    }
+
+    #jumpBtn {
+        position: fixed;
+        bottom: 30px;
+        right: 30px;
+        width: 90px;
+        height: 90px;
+        border-radius: 50%;
+        border: none;
+        background: #222;
+        color: white;
+        font-size: 18px;
+        box-shadow: 0 5px 15px rgba(0,0,0,0.3);
+    }
+
+    #jumpBtn:active {
+        transform: scale(0.9);
+    }
+</style>
+</head>
+<body>
+
+<canvas id="gameCanvas"></canvas>
+<button id="jumpBtn">SALTAR</button>
+
+<script>
+const canvas = document.getElementById("gameCanvas");
+const ctx = canvas.getContext("2d");
+
+// Tamaño pantalla
+canvas.width = window.innerWidth;
+canvas.height = window.innerHeight;
+
+// 📱 Detectar móvil
+let isMobile = window.innerWidth < 600;
+let scale = isMobile ? 0.8 : 1;
+
+let ground = canvas.height - (isMobile ? 100 : 80);
+
+// Dino
+let dino = {
+    x: 50,
+    y: ground - (50 * scale),
+    width: 50 * scale,
+    height: 50 * scale,
+    velocity: 0,
+    jumping: false
+};
+
+let clouds = [];
+let obstacles = [];
+
+let score = 0;
+let gameOver = false;
+
+// Física
+const gravity = 1.2;
+
+// Velocidad progresiva
+let gameSpeed = 5;
+let maxSpeed = 15;
+let speedIncrease = 0.002;
+
+// Obstáculos aleatorios
+let obstacleTimer = 0;
+let nextObstacleTime = Math.random() * (isMobile ? 140 : 100) + (isMobile ? 100 : 60);
+
+// Crear nube
+function createCloud() {
+    clouds.push({
+        x: canvas.width,
+        y: Math.random() * (canvas.height / 2),
+        size: (Math.random() * 20 + 20) * scale
+    });
+}
+
+// Crear obstáculo
+function createObstacle() {
+    obstacles.push({
+        x: canvas.width,
+        y: ground - (40 * scale),
+        width: (20 + Math.random() * 20) * scale,
+        height: (30 + Math.random() * 20) * scale
+    });
+}
+
+function update() {
+    if (gameOver) return;
+
+    // Aumentar velocidad
+    if (gameSpeed < maxSpeed) {
+        gameSpeed += speedIncrease;
+    }
+
+    // Salto
+    if (dino.jumping) {
+        dino.velocity += gravity;
+        dino.y += dino.velocity;
+
+        if (dino.y >= ground - dino.height) {
+            dino.y = ground - dino.height;
+            dino.jumping = false;
+            dino.velocity = 0;
+        }
+    }
+
+    // Nubes
+    clouds.forEach((c, i) => {
+        c.x -= 2;
+        if (c.x < -50) clouds.splice(i, 1);
+    });
+
+    if (Math.random() < 0.02) createCloud();
+
+    // Obstáculos
+    obstacles.forEach((obs, i) => {
+        obs.x -= gameSpeed;
+
+        if (obs.x < -50) {
+            obstacles.splice(i, 1);
+            score++;
+        }
+    });
+
+    // Generación aleatoria
+    obstacleTimer++;
+
+    if (obstacleTimer > nextObstacleTime) {
+        createObstacle();
+        obstacleTimer = 0;
+        nextObstacleTime = Math.random() * (isMobile ? 140 : 100) + (isMobile ? 100 : 60);
+    }
+
+    // Colisiones
+    obstacles.forEach(obs => {
+        if (
+            dino.x < obs.x + obs.width &&
+            dino.x + dino.width > obs.x &&
+            dino.y < obs.y + obs.height &&
+            dino.y + dino.height > obs.y
+        ) {
+            gameOver = true;
+        }
+    });
+
+    draw();
+    requestAnimationFrame(update);
+}
+
+function draw() {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+    // Nubes
+    ctx.fillStyle = "white";
+    clouds.forEach(c => {
+        ctx.beginPath();
+        ctx.arc(c.x, c.y, c.size, 0, Math.PI * 2);
+        ctx.fill();
+    });
+
+    // Suelo
+    ctx.fillStyle = "#654321";
+    ctx.fillRect(0, ground, canvas.width, 5);
+
+    // Dino
+    ctx.fillStyle = "green";
+    ctx.fillRect(dino.x, dino.y, dino.width, dino.height);
+
+    ctx.fillStyle = "black";
+    ctx.fillRect(dino.x + 30 * scale, dino.y + 10 * scale, 5 * scale, 5 * scale);
+
+    // Obstáculos
+    ctx.fillStyle = "#228B22";
+    obstacles.forEach(obs => {
+        ctx.fillRect(obs.x, obs.y, obs.width, obs.height);
+    });
+
+    // Score
+    ctx.fillStyle = "black";
+    ctx.font = (16 * scale) + "px Arial";
+    ctx.fillText("Score: " + score, canvas.width - 120, 30);
+
+    if (gameOver) {
+        ctx.fillStyle = "red";
+        ctx.font = (30 * scale) + "px Arial";
+        ctx.fillText("GAME OVER", canvas.width / 2 - 100, canvas.height / 2);
+
+        ctx.font = (16 * scale) + "px Arial";
+        ctx.fillText("TOCA EL BOTÓN", canvas.width / 2 - 80, canvas.height / 2 + 40);
+    }
+}
+
+// Saltar
+function jump() {
+    if (!dino.jumping && !gameOver) {
+        dino.jumping = true;
+        dino.velocity = -18 * scale;
+
+        if (navigator.vibrate) navigator.vibrate(50);
+    } else if (gameOver) {
+        resetGame();
+    }
+}
+
+document.getElementById("jumpBtn").addEventListener("click", jump);
+
+// Reiniciar
+function resetGame() {
+    dino.y = ground - dino.height;
+    dino.velocity = 0;
+    dino.jumping = false;
+
+    obstacles = [];
+    clouds = [];
+    score = 0;
+    gameOver = false;
+
+    gameSpeed = 5;
+
+    obstacleTimer = 0;
+    nextObstacleTime = Math.random() * (isMobile ? 140 : 100) + (isMobile ? 100 : 60);
+
+    update();
+}
+
+// Ajustar pantalla
+window.addEventListener("resize", () => {
+    canvas.width = window.innerWidth;
+    canvas.height = window.innerHeight;
+
+    isMobile = window.innerWidth < 600;
+    scale = isMobile ? 0.8 : 1;
+
+    ground = canvas.height - (isMobile ? 100 : 80);
+
+    dino.y = ground - dino.height;
+});
+
+// Iniciar
+update();
+</script>
+
+</body>
+</html>
