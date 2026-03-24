@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Dino Mobile</title>
+
+<style>
+    body {
+        margin: 0;
+        overflow: hidden;
+        background: #fff;
+        touch-action: manipulation;
+    }
+    canvas {
+        display: block;
+        background: #fff;
+    }
+</style>
+</head>
+<body>
+
+<canvas id="gameCanvas"></canvas>
+
+<script>
+const canvas = document.getElementById("gameCanvas");
+const ctx = canvas.getContext("2d");
+
+// Ajustar tamaño a pantalla
+canvas.width = window.innerWidth;
+canvas.height = window.innerHeight;
+
+// Dino
+let dino = {
+    x: 50,
+    y: canvas.height - 100,
+    width: 40,
+    height: 40,
+    velocity: 0,
+    jumping: false
+};
+
+let ground = canvas.height - 60;
+
+// Obstáculos
+let obstacles = [];
+let score = 0;
+let gameOver = false;
+
+const gravity = 1.2;
+
+// Crear obstáculo
+function createObstacle() {
+    obstacles.push({
+        x: canvas.width,
+        y: ground - 40,
+        width: 20,
+        height: 40
+    });
+}
+
+// Lógica del juego
+function update() {
+    if (gameOver) return;
+
+    // Física salto
+    if (dino.jumping) {
+        dino.velocity += gravity;
+        dino.y += dino.velocity;
+
+        if (dino.y >= ground - dino.height) {
+            dino.y = ground - dino.height;
+            dino.jumping = false;
+            dino.velocity = 0;
+        }
+    }
+
+    // Obstáculos
+    obstacles.forEach((obs, i) => {
+        obs.x -= 6;
+
+        if (obs.x < -20) {
+            obstacles.splice(i, 1);
+            score++;
+        }
+    });
+
+    // Generar obstáculos
+    if (obstacles.length === 0 || obstacles[obstacles.length - 1].x < canvas.width - 300) {
+        createObstacle();
+    }
+
+    // Colisiones
+    obstacles.forEach(obs => {
+        if (
+            dino.x < obs.x + obs.width &&
+            dino.x + dino.width > obs.x &&
+            dino.y < obs.y + obs.height &&
+            dino.y + dino.height > obs.y
+        ) {
+            gameOver = true;
+        }
+    });
+
+    draw();
+    requestAnimationFrame(update);
+}
+
+// Dibujar
+function draw() {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+    // Suelo
+    ctx.fillRect(0, ground, canvas.width, 2);
+
+    // Dino
+    ctx.fillRect(dino.x, dino.y, dino.width, dino.height);
+
+    // Obstáculos
+    obstacles.forEach(obs => {
+        ctx.fillRect(obs.x, obs.y, obs.width, obs.height);
+    });
+
+    // Score
+    ctx.fillText("Score: " + score, canvas.width - 100, 30);
+
+    if (gameOver) {
+        ctx.fillText("TOCA PARA REINICIAR", canvas.width / 2 - 80, canvas.height / 2);
+    }
+}
+
+// Controles táctiles
+function jump() {
+    if (!dino.jumping && !gameOver) {
+        dino.jumping = true;
+        dino.velocity = -18;
+    } else if (gameOver) {
+        resetGame();
+    }
+}
+
+// Detectar toque
+document.addEventListener("touchstart", jump);
+
+// También clic (por si lo abres en PC)
+document.addEventListener("click", jump);
+
+// Reiniciar
+function resetGame() {
+    dino.y = ground - dino.height;
+    dino.velocity = 0;
+    dino.jumping = false;
+    obstacles = [];
+    score = 0;
+    gameOver = false;
+    update();
+}
+
+// Ajustar si rota pantalla
+window.addEventListener("resize", () => {
+    canvas.width = window.innerWidth;
+    canvas.height = window.innerHeight;
+    ground = canvas.height - 60;
+});
+
+// Iniciar
+update();
+</script>
+
+</body>
+</html>
